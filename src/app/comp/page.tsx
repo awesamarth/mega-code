@@ -32,7 +32,7 @@ const Home: NextPage = () => {
   };
 
   return (
-    <div className={"text-black"}>
+    <div className={"text-white"}>
       <Head>
         <title>Frontend Solidity Compiler</title>
         <meta name="description" content="Compile solidity code on frontend with Next.js and Solc-js" />

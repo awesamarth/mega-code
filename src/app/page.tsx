@@ -18,7 +18,7 @@ import {
   Account,
 } from "viem";
 
-import { morphSepolia } from "viem/chains";
+import { megaethTestnet } from "viem/chains";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -54,16 +54,7 @@ pragma solidity ^0.8.19;`);
 
   let walletClient: any;
   
-  useEffect(()=>{
-    if(window.ethereum){
-    console.log("eth")
-    walletClient = createWalletClient({
-      chain: morphSepolia,
-      transport: custom(window.ethereum),
-    });
-    console.log(address)
-  }
-  },[address])
+
 
 
   useEffect(()=>{
@@ -72,7 +63,7 @@ pragma solidity ^0.8.19;`);
   }, [walletClient])
 
   const publicClient = createPublicClient({
-    chain: morphSepolia,
+    chain: megaethTestnet,
     transport: http("https://rpc-testnet.morphl2.io"),
   });
 
@@ -217,7 +208,7 @@ pragma solidity ^0.8.19;`);
             direction="horizontal"
             className="w-full  rounded-lg"
           >
-            <ResizablePanel defaultSize={20} className=" !overflow-y-auto">
+            <ResizablePanel defaultSize={20} className=" overflow-y-auto!">
               <div className="flex flex-col h-full items-center gap-5 p-6 text-gray-100">
                 <span className="font-semibold text-center">
                   {selection == UserSelection.AI && "AI Assistant"}
@@ -242,7 +233,7 @@ pragma solidity ^0.8.19;`);
                             className="flex rounded-md border-slate-200 px-3 py-2 
               text-sm ring-offset-white file:border-0  placeholder:text-slate-500
               disabled:cursor-not-allowed disabled:opacity-50
-              !border-r-0 bg-black outline-none border-0 rounded-r-none w-60 h-12"
+              !border-r-0 bg-black outline-hidden border-0 rounded-r-none w-60 h-12"
                             placeholder="ERC20 token contract"
                           />
                           <button
@@ -286,7 +277,7 @@ pragma solidity ^0.8.19;`);
                             className="flex rounded-md border-slate-200 px-3 py-2 
                           text-sm ring-offset-white file:border-0  placeholder:text-slate-500
                           disabled:cursor-not-allowed disabled:opacity-50
-                          !border-r-0 bg-black outline-none border-0 rounded-r-none w-60 h-12"
+                          !border-r-0 bg-black outline-hidden border-0 rounded-r-none w-60 h-12"
                             placeholder={`Ask doubts about ${morphOrSolidity}`}
                           />
                           <button
@@ -401,7 +392,7 @@ pragma solidity ^0.8.19;`);
                             className="flex rounded-md border-slate-200 px-3 py-2 
               text-sm ring-offset-white file:border-0  placeholder:text-slate-500
               disabled:cursor-not-allowed disabled:opacity-50
-              !border-r-0 bg-black outline-none border-0 rounded-r-none w-60 h-8"
+              !border-r-0 bg-black outline-hidden border-0 rounded-r-none w-60 h-8"
                             placeholder="sk-xxxxxxx"
                           />
                           <button
@@ -448,7 +439,7 @@ pragma solidity ^0.8.19;`);
                 className="flex rounded-md border-slate-200 px-3 py-2 
               text-sm ring-offset-white file:border-0  placeholder:text-slate-500
               disabled:cursor-not-allowed disabled:opacity-50
-              !border-r-0 bg-black outline-none border-0 rounded-r-none w-[28rem] h-12"
+              !border-r-0 bg-black outline-hidden border-0 rounded-r-none w-[28rem] h-12"
                 placeholder="write contracts with AI"
               />
               <button
