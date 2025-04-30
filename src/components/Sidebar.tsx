@@ -16,7 +16,7 @@ export default function Sidebar({
   return (
     <aside
       id="default-sidebar"
-      className="z-10 w-14 fixed left-0 items-center overflow-x-hidden h-screen bg-gray-100 dark:bg-gray-800"
+      className="z-10 w-20 fixed left-0 items-center overflow-x-hidden h-screen bg-[#dfd9d9] dark:bg-[#1a1a1a] border-r border-gray-300 dark:border-gray-800"
       aria-label="Sidebar"
     >
       <div className="h-full flex flex-col justify-between items-center px-1 py-2 overflow-y-auto">
@@ -28,9 +28,11 @@ export default function Sidebar({
               <FaWandMagicSparkles
                 title="AI"
                 data-toggle="tooltip"
-                className={`hover:cursor-pointer h-11 w-11 p-2 rounded-lg text-gray-800 dark:text-white ${
-                  selection == UserSelection.AI && "bg-gray-200 dark:bg-gray-900"
-                } hover:bg-gray-200 dark:hover:bg-gray-700`}
+                className={`hover:cursor-pointer h-11 w-11 p-2.5 rounded-lg text-gray-700 dark:text-gray-300 ${
+                  selection == UserSelection.AI
+                    ? "bg-[#1a1a1a] text-white dark:bg-[#dfd9d9] dark:text-gray-800"
+                    : "hover:bg-[#d0d0d0] dark:hover:bg-[#333333]"
+                } transition-colors`}
               />
             </button>
           </li>
@@ -39,9 +41,11 @@ export default function Sidebar({
               <FaHammer
                 title="Compile"
                 data-toggle="tooltip"
-                className={`hover:cursor-pointer h-11 w-11 p-2 rounded-lg text-gray-800 dark:text-white ${
-                  selection == UserSelection.Compile && "bg-gray-200 dark:bg-gray-900"
-                } hover:bg-gray-200 dark:hover:bg-gray-700`}
+                className={`hover:cursor-pointer h-11 w-11 p-2.5 rounded-lg text-gray-700 dark:text-gray-300 ${
+                  selection == UserSelection.Compile
+                    ? "bg-[#1a1a1a] text-white dark:bg-[#dfd9d9] dark:text-gray-800"
+                    : "hover:bg-[#d0d0d0] dark:hover:bg-[#333333]"
+                } transition-colors`}
               />
             </button>
           </li>
@@ -50,9 +54,11 @@ export default function Sidebar({
               <FaRocket
                 title="Deploy"
                 data-toggle="tooltip"
-                className={`hover:cursor-pointer h-11 w-11 p-2 rounded-lg text-gray-800 dark:text-white ${
-                  selection == UserSelection.Deploy && "bg-gray-200 dark:bg-gray-900"
-                } hover:bg-gray-200 dark:hover:bg-gray-700`}
+                className={`hover:cursor-pointer h-11 w-11 p-2.5 rounded-lg text-gray-700 dark:text-gray-300 ${
+                  selection == UserSelection.Deploy
+                    ? "bg-[#1a1a1a] text-white dark:bg-[#dfd9d9] dark:text-gray-800"
+                    : "hover:bg-[#d0d0d0] dark:hover:bg-[#333333]"
+                } transition-colors`}
               />
             </button>
           </li>
@@ -63,9 +69,11 @@ export default function Sidebar({
             <FaGear
               title="Settings"
               data-toggle="tooltip"
-              className={`hover:cursor-pointer h-11 w-11 p-2 rounded-lg text-gray-800 dark:text-white ${
-                selection == UserSelection.Settings && "bg-gray-200 dark:bg-gray-900"
-              } hover:bg-gray-200 dark:hover:bg-gray-700`}
+              className={`hover:cursor-pointer h-11 w-11 p-2.5 rounded-lg text-gray-700 dark:text-gray-300 ${
+                selection == UserSelection.Settings
+                  ? "bg-[#1a1a1a] text-white dark:bg-[#dfd9d9] dark:text-gray-800"
+                  : "hover:bg-[#d0d0d0] dark:hover:bg-[#333333]"
+              } transition-colors`}
             />
           </button>
         </div>

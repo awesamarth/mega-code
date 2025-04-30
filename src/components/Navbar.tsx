@@ -1,20 +1,17 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useState, useEffect } from "react"; // Add useEffect
-import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 
 export default function Navbar() {
   return (
-<div className="flex h-[3.5rem] z-[20] w-full text-gray-900 dark:text-white bg-white dark:bg-gray-800 items-center justify-between fixed top-0 px-2 py-2">
-<Link className="flex gap-4 items-center" href="/">
-        <Image src="/logo.png" height={100} width={40} alt="megaeth logo" />
-        <div className="text-2xl self font-bold text-gray-800 dark:text-white">Mega Code</div>
+    <div className="flex h-14 z-20 w-full text-black dark:text-white bg-[#dfd9d9] dark:bg-[#1a1a1a] items-center justify-between fixed top-0 px-4 py-2  border-gray-300 dark:border-gray-800">
+      <Link className="flex gap-3 items-center" href="/">
+        <Image src="/logo.png" height={80} width={32} alt="megaeth logo" />
+        <div className="text-2xl font-bold tracking-tight">MEGA CODE</div>
       </Link>
       
-      <div className="flex justify-center items-center h-[3.4rem] rounded-md gap-8">
+      <div className="flex justify-center items-center gap-4">
         <ThemeToggle />
         <div>
           <div><w3m-button /></div>

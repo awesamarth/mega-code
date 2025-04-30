@@ -2,10 +2,11 @@
 
 import { wagmiAdapter, projectId } from '@/config'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createAppKit } from '@reown/appkit/react'
+import { createAppKit, useAppKitTheme } from '@reown/appkit/react'
 import { foundry, megaethTestnet } from '@reown/appkit/networks'
-import React, { ReactNode } from 'react'
+import React, { ReactNode, useEffect, useState } from 'react'
 import { cookieToInitialState, WagmiProvider} from 'wagmi'
+import { useTheme } from 'next-themes'
 
 // Set up queryClient
 const queryClient = new QueryClient()
@@ -16,13 +17,13 @@ if (!projectId) {
 
 // Set up metadata
 const metadata = {
-  name: 'gambit',
+  name: 'mega-code',
   description: 'AppKit Example',
   url: 'https://appkitexampleapp.com', // origin must match your domain & subdomain
   icons: ['https://avatars.githubusercontent.com/u/179229932']
 }
 
-// Create the modal
+// Create the modal with monochrome theme variables
 const modal = createAppKit({
   adapters: [wagmiAdapter],
   projectId,
@@ -30,22 +31,54 @@ const modal = createAppKit({
   defaultNetwork: megaethTestnet,
   metadata: metadata,
   features: {
-    email:false,
-    socials:['google'],
+    email: false,
+    socials: ['google'],
   },
-  themeVariables:{
-    '--w3m-accent': '#121212',
-    '--w3m-border-radius-master' : '0.5px'
+  themeVariables: {
+    '--w3m-accent': '#333333',           
+    '--w3m-color-mix': '#000000',        // Black for mixing
+    '--w3m-color-mix-strength': 10,      // Subtle mixing
+    '--w3m-border-radius-master': '1px', // Smaller, more squared borders
+    '--w3m-font-family': 'var(--font-geist-sans)', 
+    '--w3m-z-index': 9999,               
   },
+  // Start with a default, we'll update it in the component
+  themeMode: 'light'
+});
+
+// Theme synchronization component
+function ThemeSynchronizer() {
+  const { resolvedTheme } = useTheme()
+  const { setThemeMode } = useAppKitTheme()
   
-})
+  useEffect(() => {
+    if (resolvedTheme) {
+      setThemeMode(resolvedTheme === 'dark' ? 'dark' : 'light')
+    }
+  }, [resolvedTheme, setThemeMode])
+  
+  return null
+}
 
 function ContextProvider({ children, cookies }: { children: ReactNode; cookies: string | null }) {
-    const initialState = cookieToInitialState(wagmiAdapter.wagmiConfig , cookies)
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const initialState = cookieToInitialState(wagmiAdapter.wagmiConfig, cookies)
+  
+  if (!mounted) {
+    return null
+  }
 
   return (
-    <WagmiProvider config={wagmiAdapter.wagmiConfig } initialState={initialState}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <WagmiProvider config={wagmiAdapter.wagmiConfig} initialState={initialState}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeSynchronizer />
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   )
 }

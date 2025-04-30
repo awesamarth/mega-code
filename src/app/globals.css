@@ -1,3 +1,5 @@
+/* src/app/globals.css - Updated with your custom colors */
+
 @import 'tailwindcss';
 
 @custom-variant dark (&:is(.dark *));
@@ -97,11 +99,12 @@
 */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  /* Updated light mode with your custom background color */
+  --background: #dfd9d9;
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  --card: #dfd9d9;
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: #dfd9d9;
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
@@ -120,7 +123,7 @@
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: #dfd9d9;
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -133,11 +136,12 @@
   ---break---
 */
 .dark {
-  --background: oklch(0.145 0 0);
+  /* Updated dark mode with your custom background color */
+  --background: #1a1a1a;
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: #1a1a1a;
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: #1a1a1a;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -156,7 +160,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: #1a1a1a;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -176,4 +180,3 @@
     @apply bg-background text-foreground;
   }
 }
-  
