@@ -1,43 +1,45 @@
 "use client";
 
-import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
-import { use, useEffect, useRef, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Sidebar from "@/components/Sidebar";
 import { Message, useAssistant } from "ai/react";
 import {
-  http,
   Address,
-  Hash,
   TransactionReceipt,
   createPublicClient,
   createWalletClient,
-  custom,
-  stringify,
-  Account,
+  http,
 } from "viem";
-
 import { megaethTestnet } from "viem/chains";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { compile } from "@/sol/compiler";
-import { PlayIcon, User } from "lucide-react";
 import { useAccount } from "wagmi";
 import Link from "next/link";
 import { UserSelection } from "./types/types";
 import { useTheme } from "next-themes";
+import { AlertCircle, X } from "lucide-react";
 
+// Import our new component panels
+import AIAssistantPanel from "@/components/AIAssistantPanel";
+import CompilePanel from "@/components/CompilePanel";
+import DeployPanel from "@/components/DeployPanel";
+import SettingsPanel from "@/components/SettingsPanel";
 
+interface DeployedContract {
+  address: string;
+  name: string;
+  timestamp: number;
+}
 
 export default function Home() {
   const monacoRef = useRef(null);
-  const [code, setCode] = useState(`//SPDX-License-Identfier: MIT
+  const [code, setCode] = useState(`//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;`);
   const [selection, setSelection] = useState<UserSelection>(UserSelection.AI);
   const [showPanels, setShowPanels] = useState(false);
@@ -45,48 +47,122 @@ pragma solidity ^0.8.26;`);
   const [byteCode, setByteCode] = useState("");
   const [abi, setAbi] = useState("");
   const [megaEthOrSolidity, setmegaEthOrSolidity] = useState("megaEth");
-  const [route, setRoute] = useState("/doubt/megaEth/api");
   const [hash, setHash] = useState<`0x${string}` | undefined>();
   const [receipt, setReceipt] = useState<TransactionReceipt>();
   const [deployed, setDeployed] = useState(0);
-
-  const {address} = useAccount()
-
-
-  let walletClient: any;
+  const [showWarning, setShowWarning] = useState(true);
+  const [deployedContracts, setDeployedContracts] = useState<DeployedContract[]>([]);
   
-  const {theme} = useTheme()
+  // AI Model settings
+  const [selectedProvider, setSelectedProvider] = useState("Google");
+  const [selectedModel, setSelectedModel] = useState("gemini-flash");
+  const [apiKey, setApiKey] = useState("");
 
+  const { address } = useAccount();
+  const { theme } = useTheme();
 
+  let walletClient;
 
-  useEffect(()=>{
-    console.log(walletClient)
+  useEffect(() => {
+    // Load deployed contracts from localStorage on component mount
+    const savedContracts = localStorage.getItem('deployedContracts');
+    if (savedContracts) {
+      setDeployedContracts(JSON.parse(savedContracts));
+    }
     
-  }, [walletClient])
+    // Load AI settings from localStorage
+    const savedProvider = localStorage.getItem('aiProvider');
+    const savedModel = localStorage.getItem('aiModel');
+    const savedApiKey = localStorage.getItem('aiApiKey');
+    
+    if (savedProvider) setSelectedProvider(savedProvider);
+    if (savedModel) setSelectedModel(savedModel);
+    if (savedApiKey) setApiKey(savedApiKey);
+  }, []);
 
   const publicClient = createPublicClient({
     chain: megaethTestnet,
-    transport: http("https://rpc-testnet.megaEthl2.io"),
+    transport: http(),
   });
 
-  const deployTheContract = async () => {
+  const deployTheContract = async (constructorArgs: string[] = [], value: string = "") => {
     setDeployed(1);
-    console.log(walletClient)
-    const [account] = await walletClient.getAddresses();
+    
+    try {
 
-    const hash = await walletClient.deployContract({
-      abi: JSON.parse(abi),
-      account: account, // Fix: Cast account to Account type
-      args: [],
-      bytecode: `0x${byteCode}`, // Fix: Assign byteCode as a string
-    });
+      const [account] = await walletClient.getAddresses();
+      
+      // Parse the value if provided
+      const valueInWei = value ? 
+        BigInt(parseFloat(value) * 10**18) : 
+        BigInt(0);
+        
+      // Parse constructor arguments if any
+      const parsedArgs = constructorArgs.map(arg => {
+        // Basic parsing - in a real app, you'd want more sophisticated parsing
+        // based on the argument types in the ABI
+        if (arg.startsWith('"') || arg.startsWith("'")) {
+          // It's a string
+          return arg.slice(1, -1);
+        } else if (arg.startsWith('[')) {
+          // It's an array
+          return JSON.parse(arg);
+        } else if (!isNaN(Number(arg))) {
+          // It's a number
+          return Number(arg);
+        } else if (arg.startsWith('0x')) {
+          // It's an address or bytes
+          return arg;
+        }
+        return arg;
+      });
 
-    if (hash) {
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      setReceipt(receipt);
+      const hash = await walletClient!.deployContract({
+        abi: JSON.parse(abi),
+        account: account,
+        args: parsedArgs,
+        bytecode: `0x${byteCode}`,
+        value: valueInWei
+      });
+
+      setHash(hash);
+
+      if (hash) {
+        const receipt = await publicClient.waitForTransactionReceipt({ hash });
+        setReceipt(receipt);
+        
+        // Save this contract to our list
+        if (receipt.contractAddress) {
+          const newContract = {
+            address: receipt.contractAddress,
+            name: `Contract ${new Date().toLocaleTimeString()}`,
+            timestamp: Date.now()
+          };
+          
+          const updatedContracts = [...deployedContracts, newContract];
+          setDeployedContracts(updatedContracts);
+          localStorage.setItem('deployedContracts', JSON.stringify(updatedContracts));
+        }
+      }
+
+      setDeployed(2);
+    } catch (error) {
+      console.error("Deployment error:", error);
+      setDeployed(0);
+      alert("Error deploying contract: " + error);
     }
+  };
 
-    setDeployed(2);
+  const removeContract = (address: string) => {
+    const updatedContracts = deployedContracts.filter(c => c.address !== address);
+    setDeployedContracts(updatedContracts);
+    localStorage.setItem('deployedContracts', JSON.stringify(updatedContracts));
+  };
+
+  const interactWithContract = (address: string) => {
+    // In a future implementation, this would open a modal or interface
+    // to interact with the contract at the given address
+    alert(`Interaction with contract at ${address} will be implemented soon.`);
   };
 
   useEffect(() => {
@@ -111,7 +187,6 @@ pragma solidity ^0.8.26;`);
   } = useAssistant({ api: "/doubt/solidity/api" });
 
   const {
-    status: codegenStatus,
     messages: codegenMessages,
     input: codegenInput,
     submitMessage: submitCodegen,
@@ -119,7 +194,7 @@ pragma solidity ^0.8.26;`);
     handleInputChange: handleCodegenInputChange,
   } = useAssistant({ api: "/generator/api/" });
 
-  const compileSourceCode = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const compileSourceCode = () => {
     setCompiled(() => 1);
     compile(code)
       .then((contractData) => {
@@ -134,12 +209,11 @@ pragma solidity ^0.8.26;`);
         console.error(err);
       })
       .finally(() => {
-        console.log("successfully compiled");
+        console.log("compilation complete");
       });
   };
 
   useEffect(() => {
-    // console.log(codegenMessages);
     if (
       codegenMessages &&
       codegenMessages[codegenMessages.length - 1]?.role == "assistant"
@@ -149,38 +223,25 @@ pragma solidity ^0.8.26;`);
   }, [codegenMessages]);
 
   const generateContract = async () => {
-    console.log(walletClient)
     setShowPanels(true);
     setCode("// generating...");
     setCodegenInput("write the code for " + codegenInput);
     submitCodegen();
-
-    // console.log(codegenMessages);
   };
 
   const askDoubt = async () => {
     if (megaEthOrSolidity == "megaEth") {
-      // console.log("megaEth")
-      megaEthSubmitDoubt()
+      megaEthSubmitDoubt();
     } else {
-      // console.log("solidity")
-      soliditySubmitDoubt()
-      
+      soliditySubmitDoubt();
     }
-
   };
-
-  // useEffect(() => {
-  //   console.log(code);
-  // }, [code]);
 
   function handleEditorWillMount(monaco: any) {
     monaco.languages.typescript.javascriptDefaults.setEagerModelSync(true);
   }
 
   function handleEditorDidMount(editor: any, monaco: any) {
-    // here is another way to get monaco instance
-    // you can also store it in `useRef` for further usage
     monacoRef.current = monaco;
   }
 
@@ -188,23 +249,42 @@ pragma solidity ^0.8.26;`);
     setShowPanels(true);
   }
 
-  useEffect(()=>{
+  const saveSettings = () => {
+    localStorage.setItem('aiProvider', selectedProvider);
+    localStorage.setItem('aiModel', selectedModel);
+    localStorage.setItem('aiApiKey', apiKey);
     
-  }, [megaEthOrSolidity])
-
-  // useEffect(() => {
-  //   console.log(megaEthDoubtInput)
-  // },[megaEthDoubtInput])
-  // useEffect(() => {
-  //   console.log(selection);
-  // }, [selection]);
+    alert("Settings saved successfully!");
+    
+    // In a production app, you'd integrate with the AI providers here
+    // based on the selected model and API key
+  };
 
   return (
-<div suppressHydrationWarning className="bg-[#e7e2e2] dark:bg-[#141414] min-h-screen">
-<Navbar />
+    <div suppressHydrationWarning className="bg-[#e7e2e2] dark:bg-[#141414] min-h-screen">
+      <Navbar />
       <Sidebar selection={selection} setSelection={setSelection} />
+      
+      {/* Security Warning Banner */}
+      {showWarning && (
+        <div className="fixed top-14 left-0 right-0 z-50 bg-red-50 dark:bg-red-900/30 text-red-800 dark:text-red-200 py-3 px-4 border-b border-red-200 dark:border-red-800 text-sm flex items-center justify-between">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2 text-red-600 dark:text-red-400" />
+            <span>
+              <strong>Security Warning:</strong> Generated code may contain vulnerabilities. 
+              Do NOT use in production or on mainnet without thorough security audits.
+            </span>
+          </div>
+          <button 
+            onClick={() => setShowWarning(false)}
+            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+      )}
   
-      <div className="flex h-[100vh] pl-20 pt-14">
+      <div className={`flex h-[100vh] pl-20 ${showWarning ? 'pt-24' : 'pt-14'}`}>
         {showPanels ? (
           <ResizablePanelGroup
             direction="horizontal"
@@ -222,246 +302,58 @@ pragma solidity ^0.8.26;`);
             >
               <div className="flex flex-col h-full items-center gap-4 p-4 text-gray-800 dark:text-gray-200">
                 <div className="w-full bg-gray-200/50 dark:bg-gray-800/50 rounded-md py-2 px-3 mb-2 font-medium text-center border border-gray-300/50 dark:border-gray-700/50">
-                  {selection == UserSelection.AI && "AI Assistant"}
-                  {selection == UserSelection.Compile && "Compile Contract"}
-                  {selection == UserSelection.Deploy && "Deploy Contract"}
-                  {selection == UserSelection.Settings && "Settings"}
+                  {selection === UserSelection.AI && "AI Assistant"}
+                  {selection === UserSelection.Compile && "Compile Contract"}
+                  {selection === UserSelection.Deploy && "Deploy Contract"}
+                  {selection === UserSelection.Settings && "Settings"}
                 </div>
                 
                 <div className="w-full">
-                  {selection == UserSelection.AI && (
-                    <div className="flex flex-col gap-6 items-center w-full">
-                      <div className="flex flex-col gap-3 items-center w-full bg-gray-200/30 dark:bg-gray-800/30 rounded-md p-3 border border-gray-300/50 dark:border-gray-700/50">
-                        <form
-                          onSubmit={submitCodegen}
-                          className="flex flex-col gap-2 items-center w-full"
-                        >
-                          <label className="self-start text-sm font-medium">
-                            Generate contract with AI
-                          </label>
-                          <textarea
-                            value={codegenInput}
-                            onChange={handleCodegenInputChange}
-                            className="flex rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 
-                              w-full text-sm bg-white dark:bg-gray-900 text-black dark:text-white
-                              focus:outline-none focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-400
-                              placeholder:text-gray-500"
-                            placeholder="ERC20 token contract"
-                          />
-                          <button
-                            onClick={generateContract}
-                            className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 py-2 px-4 rounded-md text-white w-full
-                              transition-colors duration-200 font-medium"
-                          >
-                            Generate
-                          </button>
-                        </form>
-                      </div>
-                      
-                      <div className="flex flex-col gap-3 items-center w-full bg-gray-200/30 dark:bg-gray-800/30 rounded-md p-3 border border-gray-300/50 dark:border-gray-700/50">
-                        <label className="self-start text-sm font-medium">Ask doubts</label>
-                        <div className="flex gap-2 self-start w-full">
-                          <button
-                            onClick={() => setmegaEthOrSolidity("megaEth")}
-                            className={`flex-1 px-3 py-1.5 rounded-md font-medium transition-colors duration-200 ${
-                              megaEthOrSolidity == "megaEth"
-                                ? "bg-gray-800 dark:bg-gray-700 text-white"
-                                : "bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700"
-                            }`}
-                          >
-                            MegaETH
-                          </button>
-                          <button
-                            onClick={() => setmegaEthOrSolidity("Solidity")}
-                            className={`flex-1 px-3 py-1.5 rounded-md font-medium transition-colors duration-200 ${
-                              megaEthOrSolidity == "Solidity"
-                                ? "bg-gray-800 dark:bg-gray-700 text-white"
-                                : "bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700"
-                            }`}
-                          >
-                            Solidity
-                          </button>
-                        </div>
-                        <div className="flex flex-col gap-2 items-center w-full">
-                          <textarea
-                            value={megaEthOrSolidity=="megaEth"?megaEthDoubtInput:solidityDoubtInput}
-                            onChange={megaEthOrSolidity=="megaEth"?megaEthHandleDoubtInputChange:solidityHandleDoubtInputChange}
-                            className="flex rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 
-                              w-full text-sm bg-white dark:bg-gray-900 text-black dark:text-white
-                              focus:outline-none focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-400
-                              placeholder:text-gray-500"
-                            placeholder={`Ask doubts about ${megaEthOrSolidity}`}
-                          />
-                          <button
-                            onClick={askDoubt}
-                            className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 py-2 px-4 rounded-md text-white w-full
-                              transition-colors duration-200 font-medium"
-                          >
-                            Ask
-                          </button>
-                        </div>
-  
-                        <div className="w-full max-h-[400px] overflow-y-auto mt-2 space-y-3">
-                          {megaEthOrSolidity=="megaEth"?
-                          megaEthDoubtMessages.map((m: Message) => (
-                            <div
-                              key={m.id}
-                              className="w-full whitespace-pre-wrap flex flex-col text-left
-                                bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-300 dark:border-gray-700
-                                text-black dark:text-white"
-                            >
-                              <div className="font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                {m.role === 'user' ? 'You' : 'Assistant'}
-                              </div>
-                              {m.role !== "data" && <div className="text-sm">{m.content}</div>}
-                              {m.role === "data" && (
-                                <>
-                                  <div className="text-sm">{(m.data as any).description}</div>
-                                  <pre className="mt-2 bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto">
-                                    {JSON.stringify(m.data, null, 2)}
-                                  </pre>
-                                </>
-                              )}
-                            </div>
-                          )):
-                          solidityDoubtMessages.map((m: Message) => (
-                            <div
-                              key={m.id}
-                              className="w-full whitespace-pre-wrap flex flex-col text-left
-                                bg-white dark:bg-gray-900 p-3 rounded-md border border-gray-300 dark:border-gray-700
-                                text-black dark:text-white"
-                            >
-                              <div className="font-medium text-gray-600 dark:text-gray-400 mb-1">
-                                {m.role === 'user' ? 'You' : 'Assistant'}
-                              </div>
-                              {m.role !== "data" && <div className="text-sm">{m.content}</div>}
-                              {m.role === "data" && (
-                                <>
-                                  <div className="text-sm">{(m.data as any).description}</div>
-                                  <pre className="mt-2 bg-gray-100 dark:bg-gray-800 p-2 rounded text-xs overflow-x-auto">
-                                    {JSON.stringify(m.data, null, 2)}
-                                  </pre>
-                                </>
-                              )}
-                            </div>
-                          ))
-                          }
-                        </div>
-                      </div>
-                    </div>
+                  {selection === UserSelection.AI && (
+                    <AIAssistantPanel
+                      codegenInput={codegenInput}
+                      handleCodegenInputChange={handleCodegenInputChange}
+                      generateContract={generateContract}
+                      megaEthOrSolidity={megaEthOrSolidity}
+                      setmegaEthOrSolidity={setmegaEthOrSolidity}
+                      megaEthDoubtInput={megaEthDoubtInput}
+                      megaEthHandleDoubtInputChange={megaEthHandleDoubtInputChange}
+                      megaEthDoubtMessages={megaEthDoubtMessages}
+                      solidityDoubtInput={solidityDoubtInput}
+                      solidityHandleDoubtInputChange={solidityHandleDoubtInputChange}
+                      solidityDoubtMessages={solidityDoubtMessages}
+                      askDoubt={askDoubt}
+                    />
                   )}
   
-                  {selection == UserSelection.Compile && (
-                    <div className="flex flex-col gap-3 items-center w-full bg-gray-200/30 dark:bg-gray-800/30 rounded-md p-4 border border-gray-300/50 dark:border-gray-700/50">
-                      <div className="text-sm font-medium mb-2">Compile your smart contract to generate bytecode and ABI</div>
-                      <button
-                        className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 h-12 w-full px-4 py-2 rounded-md text-white
-                          transition-colors duration-200 font-medium flex items-center justify-center gap-2"
-                        onClick={compileSourceCode}
-                      >
-                        {compiled === 1 ? (
-                          <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Compiling...
-                          </>
-                        ) : "Compile"}
-                      </button>
-                      
-                      {compiled === 2 && (
-                        <div className="mt-2 w-full bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 px-4 py-3 rounded-md text-center">
-                          <strong className="font-bold">Success!</strong>
-                          <span className="block sm:inline"> Your contract has been compiled successfully.</span>
-                        </div>
-                      )}
-                    </div>
+                  {selection === UserSelection.Compile && (
+                    <CompilePanel
+                      compileSourceCode={compileSourceCode}
+                      compiled={compiled}
+                    />
                   )}
   
-                  {selection == UserSelection.Deploy && (
-                    <div className="flex flex-col gap-3 items-center w-full bg-gray-200/30 dark:bg-gray-800/30 rounded-md p-4 border border-gray-300/50 dark:border-gray-700/50">
-                      <div className="text-sm font-medium mb-2">Deploy your compiled contract to MegaETH testnet</div>
-                      <button
-                        className="bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 h-12 w-full px-4 py-2 rounded-md text-white
-                          transition-colors duration-200 font-medium flex items-center justify-center gap-2"
-                        onClick={deployTheContract}
-                      >
-                        {deployed === 1 ? (
-                          <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Deploying...
-                          </>
-                        ) : "Deploy"}
-                      </button>
-                      
-                      {deployed === 2 && (
-                        <div className="mt-2 w-full">
-                          <div className="bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-800 dark:text-gray-200 px-4 py-3 rounded-md mb-3 text-center">
-                            <strong className="font-bold">Success!</strong>
-                            <span className="block sm:inline"> Your contract has been deployed successfully.</span>
-                          </div>
-                          
-                          {receipt && (
-                            <div className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md p-3 text-center">
-                              <div className="text-sm mb-2">Contract deployed at:</div>
-                              <Link
-                                className="text-gray-800 dark:text-gray-200 underline break-all text-xs font-mono"
-                                rel="noreferrer noopener"
-                                target="_blank"
-                                href={`https://explorer-testnet.megaethl2.io/address/${receipt.contractAddress}`}
-                              >
-                                {receipt.contractAddress}
-                              </Link>
-                              <div className="mt-2">
-                                <Link
-                                  className="inline-flex items-center text-sm text-white bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 px-3 py-1 rounded-md transition-colors duration-200"
-                                  rel="noreferrer noopener"
-                                  target="_blank"
-                                  href={`https://explorer-testnet.megaethl2.io/address/${receipt.contractAddress}`}
-                                >
-                                  View on Explorer
-                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                </Link>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                  {selection === UserSelection.Deploy && (
+                    <DeployPanel
+                      deployTheContract={deployTheContract}
+                      deployed={deployed}
+                      receipt={receipt}
+                      deployedContracts={deployedContracts}
+                      onInteractWithContract={interactWithContract}
+                      onRemoveContract={removeContract}
+                    />
                   )}
   
-                  {selection == UserSelection.Settings && (
-                    <div className="flex flex-col gap-3 items-center w-full bg-gray-200/30 dark:bg-gray-800/30 rounded-md p-4 border border-gray-300/50 dark:border-gray-700/50">
-                      <div className="text-sm font-medium mb-2">Configure your IDE settings</div>
-                      <div className="w-full">
-                        <label className="block text-sm font-medium mb-1">
-                          OpenAI API Key
-                        </label>
-                        <input
-                          type="password"
-                          value={"apiKey"}
-                          // onChange={(e) => setApiKey(e.target.value)}
-                          className="flex rounded-md border border-gray-300 dark:border-gray-700 px-3 py-2 
-                            w-full text-sm bg-white dark:bg-gray-900 text-black dark:text-white
-                            focus:outline-none focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-400
-                            placeholder:text-gray-500"
-                          placeholder="sk-xxxxxxx"
-                        />
-                        <button
-                          onClick={() => ("")}
-                          className="mt-2 bg-gray-800 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 py-2 px-4 rounded-md text-white w-full
-                            transition-colors duration-200 font-medium"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
+                  {selection === UserSelection.Settings && (
+                    <SettingsPanel
+                      selectedProvider={selectedProvider}
+                      selectedModel={selectedModel}
+                      onProviderChange={setSelectedProvider}
+                      onModelChange={setSelectedModel}
+                      apiKey={apiKey}
+                      onApiKeyChange={setApiKey}
+                      onSaveSettings={saveSettings}
+                    />
                   )}
                 </div>
               </div>
@@ -499,7 +391,7 @@ pragma solidity ^0.8.26;`);
                     height="100%"
                     defaultLanguage="sol"
                     defaultValue="//SPDX-License-Identifier: MIT
-  pragma solidity ^0.8.26;"
+pragma solidity ^0.8.26;"
                     theme={theme==="light"?"light":"vs-dark"}
                     value={code}
                     loading={
@@ -543,7 +435,7 @@ pragma solidity ^0.8.26;`);
                 Write, compile and deploy Solidity smart contracts seamlessly
               </p>
               
-              <form className="mb-4" onSubmit={generateContract}>
+              <form className="mb-4" onSubmit={(e) => { e.preventDefault(); generateContract(); }}>
                 <div className="flex flex-col mb-4">
                   <label className="mb-2 text-sm font-medium text-gray-800 dark:text-gray-200">
                     Generate Smart Contract with AI

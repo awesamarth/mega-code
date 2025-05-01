@@ -1,5 +1,4 @@
 import { AssistantResponse } from 'ai';
-import OpenAI from 'openai';
  
 // Create an OpenAI API client (that's edge friendly!)
 const openai = new OpenAI({
